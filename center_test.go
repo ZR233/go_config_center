@@ -8,7 +8,6 @@ func TestConfig_Save(t *testing.T) {
 		t.Error(err)
 		return
 	}
-
 	err = ce.Sync()
 	if err != nil {
 		t.Error(err)
