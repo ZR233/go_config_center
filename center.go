@@ -124,7 +124,6 @@ func (c *Center) upload() (err error) {
 		err = errors.New("path is empty")
 		return
 	}
-
 	Path := strings.TrimLeft(c.RemotePath, "/")
 	pathSlice := strings.Split(Path, "/")
 	pathSlice = append(pathSlice, c.name)
