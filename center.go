@@ -161,3 +161,25 @@ func (c *Center) upload() (err error) {
 
 	return
 }
+
+func (c *Center) GetString(key string) string                    { return c.viper.GetString(key) }
+func (c *Center) GetBool(key string) bool                        { return c.viper.GetBool(key) }
+func (c *Center) GetInt(key string) int                          { return c.viper.GetInt(key) }
+func (c *Center) GetInt32(key string) int32                      { return c.viper.GetInt32(key) }
+func (c *Center) GetInt64(key string) int64                      { return c.viper.GetInt64(key) }
+func (c *Center) GetUint(key string) uint                        { return c.viper.GetUint(key) }
+func (c *Center) GetUint32(key string) uint32                    { return c.viper.GetUint32(key) }
+func (c *Center) GetUint64(key string) uint64                    { return c.viper.GetUint64(key) }
+func (c *Center) GetFloat64(key string) float64                  { return c.viper.GetFloat64(key) }
+func (c *Center) GetTime(key string) time.Time                   { return c.viper.GetTime(key) }
+func (c *Center) GetDuration(key string) time.Duration           { return c.viper.GetDuration(key) }
+func (c *Center) GetIntSlice(key string) []int                   { return c.viper.GetIntSlice(key) }
+func (c *Center) GetStringSlice(key string) []string             { return c.viper.GetStringSlice(key) }
+func (c *Center) GetStringMap(key string) map[string]interface{} { return c.viper.GetStringMap(key) }
+func (c *Center) GetStringMapString(key string) map[string]string {
+	return c.viper.GetStringMapString(key)
+}
+func (c *Center) GetStringMapStringSlice(key string) map[string][]string {
+	return c.viper.GetStringMapStringSlice(key)
+}
+func (c *Center) GetSizeInBytes(key string) uint { return c.viper.GetSizeInBytes(key) }
