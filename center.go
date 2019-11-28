@@ -1,7 +1,9 @@
 package go_config_centor
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/samuel/go-zookeeper/zk"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -13,47 +15,188 @@ import (
 )
 
 const (
-	centerPrefix = "/config_center"
-	filePrefix   = "temp_"
-	fileType     = ".json"
+	centerPrefix     = "/config_center"
+	filePrefix       = "temp_"
+	fileType         = ".json"
+	publicConfigName = "public.json"
 )
 
 type Center struct {
-	zkConn     *zk.Conn
-	RemotePath string
-	localPath  string
-	name       string
-	viper      *viper.Viper
+	zkHosts            []string
+	zkConn             *zk.Conn
+	RemotePath         string
+	localPath          string
+	name               string
+	viper              *viper.Viper
+	publicViper        *viper.Viper
+	onlineMode         bool
+	enablePublicConfig bool
+	updateSuccess      bool
+}
+
+func (c *Center) SetOnlineMode(b bool) {
+	c.onlineMode = b
+}
+func (c *Center) EnablePublicConfig(b bool) {
+	c.enablePublicConfig = b
+}
+
+func (c *Center) publicLocalPathName() string {
+	return path.Join(c.localPath, filePrefix+publicConfigName)
 }
 
 func (c *Center) localPathName() string {
 	return path.Join(c.localPath, filePrefix+c.name)
 }
 
-func NewCenter(zkHosts []string, Path, Name string) (center *Center, err error) {
+func NewCenter(zkHosts []string, Path, Name string) (center *Center) {
 	Path = path.Join(centerPrefix, Path)
 	Name += fileType
-	center = &Center{}
-	conn, _, err := zk.Connect(zkHosts, time.Second*5)
-	if err != nil {
-		return
+	center = &Center{
+		onlineMode:         true,
+		enablePublicConfig: true,
+		updateSuccess:      true,
 	}
+	center.zkHosts = zkHosts
 	center.name = Name
-	center.zkConn = conn
 	center.RemotePath = Path
 	center.localPath = "./"
 	center.viper = viper.New()
+	center.publicViper = viper.New()
+	return
+}
 
-	localPathName := center.localPathName()
+func (c *Center) prepareConfig(viper2 *viper.Viper, remotePathName, localPathName string) (err error) {
 	ifFileNotExistThenCreate(localPathName)
 
-	err = center.download()
+	if c.onlineMode {
+
+		err = downloadConfig(c.zkConn, remotePathName, localPathName)
+		if err != nil {
+			err = fmt.Errorf("[config center]sync public config fail:\n%w", err)
+			logrus.Error(err)
+			c.updateSuccess = false
+		}
+	}
+	viper2.SetConfigFile(localPathName)
+
+	return
+}
+
+func (c *Center) Open() (err error) {
+	conn, _, err := zk.Connect(c.zkHosts, time.Second*5)
+	if err != nil {
+		return
+	}
+	c.zkConn = conn
+
+	err = c.prepareConfig(c.viper, path.Join(c.RemotePath, c.name), c.localPathName())
+
+	if c.enablePublicConfig {
+		err = c.prepareConfig(c.publicViper, path.Join(centerPrefix, publicConfigName), c.publicLocalPathName())
+		c.SetPublicDefault()
+
+		//同步线上公共配置
+		err = c.syncPublic()
+		if err != nil {
+			err = fmt.Errorf("[config center]sync public config fail:\n%w", err)
+			logrus.Error(err)
+		}
+
+	}
+
+	return
+}
+
+func (c *Center) Update() (err error) {
+
+	conn, _, err := zk.Connect(c.zkHosts, time.Second*5)
+	if err != nil {
+		return
+	}
+	c.zkConn = conn
+	if c.enablePublicConfig {
+		err = c.downloadPublic()
+		if err != nil {
+			logrus.Error("[config center]download public config fail")
+		}
+	}
+
+	err = c.download()
 	if err != nil {
 		logrus.Error("[config center]download config fail")
 	}
 
-	center.viper.SetConfigFile(localPathName)
 	return
+}
+
+type RedisConfig struct {
+	// A seed list of host:port addresses of cluster nodes.
+	Addrs []string
+
+	// The maximum number of retries before giving up. Command is retried
+	// on network errors and MOVED/ASK redirects.
+	// Default is 8 retries.
+	MaxRedirects int
+
+	// Enables read-only commands on slave nodes.
+	ReadOnly bool
+	// Allows routing read-only commands to the closest master or slave node.
+	// It automatically enables ReadOnly.
+	RouteByLatency bool
+	// Allows routing read-only commands to the random master or slave node.
+	// It automatically enables ReadOnly.
+	RouteRandomly bool
+
+	Password string
+
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+
+	// PoolSize applies per cluster node and not for the whole cluster.
+	PoolSize           int
+	MinIdleConns       int
+	MaxConnAge         time.Duration
+	PoolTimeout        time.Duration
+	IdleTimeout        time.Duration
+	IdleCheckFrequency time.Duration
+}
+
+type SQLConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+}
+
+type PostgreSQLConfig struct {
+	Write SQLConfig
+	Read  []SQLConfig
+}
+
+func (c *Center) SetPublicDefault() {
+	redis := RedisConfig{}
+	redis.Addrs = []string{"192.168.0.3:6379"}
+	redis.Password = "asdf*123"
+	c.publicViper.SetDefault("redis", redis)
+	c.publicViper.SetDefault("hbase.thrift", "192.168.0.3:9090")
+	c.publicViper.SetDefault("hbase.thrift2", "192.168.0.3:9090")
+
+	pgcfgOne := SQLConfig{
+		"192.168.0.3",
+		5432,
+		"sa",
+		"asdf*123",
+	}
+	pgcfg := PostgreSQLConfig{
+		Write: pgcfgOne,
+		Read: []SQLConfig{
+			pgcfgOne,
+		},
+	}
+	c.publicViper.SetDefault("sql.postgres", pgcfg)
+
 }
 
 func (c *Center) SetDefault(key string, value interface{}) {
@@ -76,57 +219,80 @@ func ifFileNotExistThenCreate(path string) {
 }
 
 func (c *Center) download() (err error) {
-	var data []byte
-
 	remotePath := path.Join(c.RemotePath, c.name)
+	localPathName := c.localPathName()
+	err = downloadConfig(c.zkConn, remotePath, localPathName)
+	return
+}
+func (c *Center) downloadPublic() (err error) {
+	remotePath := path.Join(centerPrefix, publicConfigName)
+	localPathName := c.publicLocalPathName()
+	err = downloadConfig(c.zkConn, remotePath, localPathName)
+	return
+}
 
-	exist, _, err := c.zkConn.Exists(remotePath)
+func downloadConfig(conn *zk.Conn, remotePathName, localPathName string) (err error) {
+	var data []byte
+	exist, _, err := conn.Exists(remotePathName)
 	if err != nil {
 		return
 	}
 	if !exist {
-		logrus.Warn("[config center]config path not exist, will create:\n", remotePath)
+		logrus.Warn("[config center]config path not exist, will create:\n", remotePathName)
 		return
 	}
-	data, _, err = c.zkConn.Get(remotePath)
+	data, _, err = conn.Get(remotePathName)
 	if err != nil {
 		return
 	}
-	err = ioutil.WriteFile(c.localPathName(), data, os.ModePerm)
+	err = ioutil.WriteFile(localPathName, data, os.ModePerm)
 	return
 }
 
 func (c *Center) Sync() (err error) {
-	err = c.viper.ReadInConfig() // Find and read the config file
-	if err != nil {              // Handle errors reading the config file
-		logrus.Warn("config file is empty")
+	err = c.sync(c.viper, c.RemotePath, c.localPathName(), c.name)
+	return
+}
+func (c *Center) syncPublic() (err error) {
+	err = c.sync(c.publicViper, centerPrefix, c.publicLocalPathName(), publicConfigName)
+	return
+}
+
+func (c *Center) sync(viper2 *viper.Viper, remotePath, localPathName, configName string) (err error) {
+	err = viper2.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		logrus.Warn(fmt.Sprintf("[config center]config file is empty:\n%s", err))
 	}
 
-	err = c.viper.WriteConfig()
+	err = viper2.WriteConfig()
 	if err != nil { // Handle errors reading the config file
+		err = fmt.Errorf("writer config fail:\r%w", err)
 		return
 	}
-	err = c.viper.ReadInConfig() // Find and read the config file
-	if err != nil {              // Handle errors reading the config file
+	err = viper2.ReadInConfig() // Find and read the config file
+	if err != nil {             // Handle errors reading the config file
+		err = fmt.Errorf("read config fail:\r%w", err)
 		return
 	}
 
-	err = c.upload()
-	if err != nil { // Handle errors reading the config file
-		logrus.Error("[config center]upload config fail:\n", err)
+	if c.onlineMode && c.updateSuccess {
+		err = upload(c.zkConn, remotePath, localPathName, configName)
+		if err != nil { // Handle errors reading the config file
+			err = fmt.Errorf("upload config fail:\r%w", err)
+		}
 	}
 
 	return
 }
 
-func (c *Center) upload() (err error) {
-	if c.RemotePath == "" {
+func upload(conn *zk.Conn, remotePath, localPathName, configName string) (err error) {
+	if remotePath == "" {
 		err = errors.New("path is empty")
 		return
 	}
-	Path := strings.TrimLeft(c.RemotePath, "/")
+	Path := strings.TrimLeft(remotePath, "/")
 	pathSlice := strings.Split(Path, "/")
-	pathSlice = append(pathSlice, c.name)
+	pathSlice = append(pathSlice, configName)
 
 	Path = ""
 	pathLayLen := len(pathSlice)
@@ -135,7 +301,7 @@ func (c *Center) upload() (err error) {
 	for i := 0; i < pathLayLen; i++ {
 		Path += "/" + pathSlice[i]
 		exist := false
-		exist, _, err = c.zkConn.Exists(Path)
+		exist, _, err = conn.Exists(Path)
 		if err != nil {
 			return
 		}
@@ -145,21 +311,54 @@ func (c *Center) upload() (err error) {
 			// create
 			var flags int32 = 0
 
-			_, err = c.zkConn.Create(Path, data, flags, acls)
+			_, err = conn.Create(Path, data, flags, acls)
 			if err != nil {
 				return
 			}
 		}
 	}
-	data, err = ioutil.ReadFile(c.localPathName())
-	_, stat, err := c.zkConn.Get(Path)
+	data, err = ioutil.ReadFile(localPathName)
+	_, stat, err := conn.Get(Path)
 	if err != nil {
 		return
 	}
-	_, err = c.zkConn.Set(Path, data, stat.Version)
+	_, err = conn.Set(Path, data, stat.Version)
 
 	return
 }
+
+func (c *Center) GetKafkaAddresses() (addrArr []string, err error) {
+	brokersPath := "/brokers/ids"
+	Children, _, err := c.zkConn.Children(brokersPath)
+	if err != nil {
+		err = fmt.Errorf("kafka not exist\n%w", err)
+	}
+	type KafkaAddress struct {
+		Host string
+		Port int
+	}
+
+	var data []byte
+	for _, child := range Children {
+		data, _, err = c.zkConn.Get(path.Join(brokersPath, child))
+		if err != nil {
+			logrus.Warn(fmt.Sprintf("[config center]kafka broker (%s) lost", child))
+			continue
+		}
+		var addr KafkaAddress
+		err = json.Unmarshal(data, &addr)
+		if err != nil {
+			return
+		}
+
+		addrArr = append(addrArr, fmt.Sprintf("%s:%d", addr.Host, addr.Port))
+	}
+
+	return
+}
+
+func (c *Center) GetHBaseThrift() string  { return c.publicViper.GetString("hbase.thrift") }
+func (c *Center) GetHBaseThrift2() string { return c.publicViper.GetString("hbase.thrift2") }
 
 func (c *Center) GetString(key string) string                    { return c.viper.GetString(key) }
 func (c *Center) GetBool(key string) bool                        { return c.viper.GetBool(key) }
