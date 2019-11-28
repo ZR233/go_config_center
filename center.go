@@ -90,6 +90,12 @@ func (c *Center) Open() (err error) {
 	}
 	c.zkConn = conn
 
+	err = c.Update()
+
+	return
+}
+
+func (c *Center) Update() (err error) {
 	err = c.prepareConfig(c.viper, path.Join(c.RemotePath, c.name), c.localPathName())
 
 	if c.enablePublicConfig {
@@ -102,29 +108,6 @@ func (c *Center) Open() (err error) {
 			err = fmt.Errorf("[config center]sync public config fail:\n%w", err)
 			logrus.Error(err)
 		}
-
-	}
-
-	return
-}
-
-func (c *Center) Update() (err error) {
-
-	conn, _, err := zk.Connect(c.zkHosts, time.Second*5)
-	if err != nil {
-		return
-	}
-	c.zkConn = conn
-	if c.enablePublicConfig {
-		err = c.downloadPublic()
-		if err != nil {
-			logrus.Error("[config center]download public config fail")
-		}
-	}
-
-	err = c.download()
-	if err != nil {
-		logrus.Error("[config center]download config fail")
 	}
 
 	return
