@@ -18,7 +18,7 @@ const (
 	centerPrefix     = "/config_center"
 	filePrefix       = "temp_"
 	fileType         = ".yaml"
-	publicConfigName = "public.json"
+	publicConfigName = "public.yaml"
 )
 
 type Center struct {
