@@ -66,6 +66,15 @@ func NewCenter(zkHosts []string, Path, Name string) (center *Center) {
 	return
 }
 
+type FileConfig struct {
+	*viper.Viper
+	center *Center
+}
+
+func (f *FileConfig) Sync() error {
+	return syncViperFile(f.Viper)
+}
+
 func (c *Center) prepareConfig(viper2 *viper.Viper, remotePathName, localPathName string) (err error) {
 	ifFileNotExistThenCreate(localPathName)
 
@@ -81,6 +90,26 @@ func (c *Center) prepareConfig(viper2 *viper.Viper, remotePathName, localPathNam
 	viper2.SetConfigFile(localPathName)
 
 	return
+}
+
+func (c *Center) NewFileConfig(fileName string) *FileConfig {
+	f := &FileConfig{
+		Viper:  viper.New(),
+		center: c,
+	}
+
+	filePathName := path.Join(c.localPath, fileName+".yaml")
+	ifFileNotExistThenCreate(filePathName)
+
+	f.SetConfigFile(fileName)
+	f.SetDefault("zk", []string{
+		"192.168.0.3:2181",
+	})
+
+	return f
+}
+func (f *FileConfig) GetZKHosts() []string {
+	return f.GetStringSlice("zk")
 }
 
 func (c *Center) Open() (err error) {
@@ -241,7 +270,7 @@ func (c *Center) syncPublic() (err error) {
 	return
 }
 
-func (c *Center) sync(viper2 *viper.Viper, remotePath, localPathName, configName string) (err error) {
+func syncViperFile(viper2 *viper.Viper) (err error) {
 	err = viper2.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
 		logrus.Warn(fmt.Sprintf("[config center]config file is empty:\n%s", err))
@@ -255,6 +284,15 @@ func (c *Center) sync(viper2 *viper.Viper, remotePath, localPathName, configName
 	err = viper2.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
 		err = fmt.Errorf("read config fail:\r%w", err)
+		return
+	}
+
+	return
+}
+
+func (c *Center) sync(viper2 *viper.Viper, remotePath, localPathName, configName string) (err error) {
+	err = syncViperFile(viper2)
+	if err != nil {
 		return
 	}
 
