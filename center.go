@@ -17,7 +17,7 @@ import (
 const (
 	centerPrefix     = "/config_center"
 	filePrefix       = "temp_"
-	fileType         = ".json"
+	fileType         = ".yaml"
 	publicConfigName = "public.json"
 )
 
