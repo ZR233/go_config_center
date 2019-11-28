@@ -34,3 +34,15 @@ func TestCenter_GetKafkaAddresses(t *testing.T) {
 
 	t.Log(addr)
 }
+
+func TestCenter_GetPublicPostgres(t *testing.T) {
+	ce := NewCenter([]string{"bsw-ubuntu:2181"}, "/test1/test2/test3", "detect_config")
+	err := ce.Open()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	p := ce.GetPublicPostgres()
+
+	t.Log(p)
+}

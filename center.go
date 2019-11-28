@@ -359,6 +359,16 @@ func (c *Center) GetKafkaAddresses() (addrArr []string, err error) {
 
 func (c *Center) GetHBaseThrift() string  { return c.publicViper.GetString("hbase.thrift") }
 func (c *Center) GetHBaseThrift2() string { return c.publicViper.GetString("hbase.thrift2") }
+func (c *Center) GetPublicPostgres() *PostgreSQLConfig {
+	p := &PostgreSQLConfig{}
+	_ = c.publicViper.UnmarshalKey("sql.postgres", p)
+	return p
+}
+func (c *Center) GetPublicRedis() *RedisConfig {
+	p := &RedisConfig{}
+	_ = c.publicViper.UnmarshalKey("redis", p)
+	return p
+}
 
 func (c *Center) GetString(key string) string                    { return c.viper.GetString(key) }
 func (c *Center) GetBool(key string) bool                        { return c.viper.GetBool(key) }
