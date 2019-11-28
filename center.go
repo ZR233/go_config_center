@@ -72,6 +72,10 @@ func NewCenter(Path, Name string) (center *Center) {
 	return
 }
 
+func (c *Center) SetLocalConfigPath(localPath string) {
+	c.localPath = localPath
+}
+
 func (c *Center) prepareConfig(viper2 *viper.Viper, remotePathName, localPathName string) (err error) {
 	err = ifFileNotExistThenCreate(localPathName)
 	if err != nil {
