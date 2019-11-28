@@ -96,7 +96,7 @@ func (c *Center) prepareConfig(viper2 *viper.Viper, remotePathName, localPathNam
 	return
 }
 
-func (c *Center) GetFileConfig(fileName string) *FileConfig {
+func (c *Center) GetFileConfig() *FileConfig {
 	return c.fileConfig
 }
 
