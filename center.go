@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ZR233/go_config_center/log"
 	"github.com/samuel/go-zookeeper/zk"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
@@ -32,6 +32,11 @@ type Center struct {
 	onlineMode         bool
 	enablePublicConfig bool
 	updateSuccess      bool
+	fileConfig         *FileConfig
+}
+
+func SetLogger(logger log.Logger) {
+	log.SetLogger(logger)
 }
 
 func (c *Center) SetOnlineMode(b bool) {
@@ -49,7 +54,7 @@ func (c *Center) localPathName() string {
 	return path.Join(c.localPath, filePrefix+c.name)
 }
 
-func NewCenter(zkHosts []string, Path, Name string) (center *Center) {
+func NewCenter(Path, Name string) (center *Center) {
 	Path = path.Join(centerPrefix, Path)
 	Name += fileType
 	center = &Center{
@@ -57,33 +62,28 @@ func NewCenter(zkHosts []string, Path, Name string) (center *Center) {
 		enablePublicConfig: true,
 		updateSuccess:      true,
 	}
-	center.zkHosts = zkHosts
+
 	center.name = Name
 	center.RemotePath = Path
 	center.localPath = "./"
 	center.viper = viper.New()
 	center.publicViper = viper.New()
+
 	return
 }
 
-type FileConfig struct {
-	*viper.Viper
-	center *Center
-}
-
-func (f *FileConfig) Sync() error {
-	return syncViperFile(f.Viper)
-}
-
 func (c *Center) prepareConfig(viper2 *viper.Viper, remotePathName, localPathName string) (err error) {
-	ifFileNotExistThenCreate(localPathName)
+	err = ifFileNotExistThenCreate(localPathName)
+	if err != nil {
+		return
+	}
 
 	if c.onlineMode {
 
 		err = downloadConfig(c.zkConn, remotePathName, localPathName)
 		if err != nil {
 			err = fmt.Errorf("[config center]sync public config fail:\n%w", err)
-			logrus.Error(err)
+			log.Error(err)
 			c.updateSuccess = false
 		}
 	}
@@ -92,27 +92,13 @@ func (c *Center) prepareConfig(viper2 *viper.Viper, remotePathName, localPathNam
 	return
 }
 
-func (c *Center) NewFileConfig(fileName string) *FileConfig {
-	f := &FileConfig{
-		Viper:  viper.New(),
-		center: c,
-	}
-
-	filePathName := path.Join(c.localPath, fileName+".yaml")
-	ifFileNotExistThenCreate(filePathName)
-
-	f.SetConfigFile(fileName)
-	f.SetDefault("zk", []string{
-		"192.168.0.3:2181",
-	})
-
-	return f
-}
-func (f *FileConfig) GetZKHosts() []string {
-	return f.GetStringSlice("zk")
+func (c *Center) GetFileConfig(fileName string) *FileConfig {
+	return c.fileConfig
 }
 
 func (c *Center) Open() (err error) {
+	c.fileConfig, err = newFileConfig(c)
+
 	conn, _, err := zk.Connect(c.zkHosts, time.Second*5)
 	if err != nil {
 		return
@@ -135,7 +121,7 @@ func (c *Center) Update() (err error) {
 		err = c.syncPublic()
 		if err != nil {
 			err = fmt.Errorf("[config center]sync public config fail:\n%w", err)
-			logrus.Error(err)
+			log.Error(err)
 		}
 	}
 
@@ -215,19 +201,27 @@ func (c *Center) SetDefault(key string, value interface{}) {
 	c.viper.SetDefault(key, value)
 }
 
-func ifFileNotExistThenCreate(path string) {
+func ifFileNotExistThenCreate(path string) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("create file fail (%s):\n%w", path, err)
+		}
+	}()
+
 	// 若配置文件不存在，则创建
-	if _, err := os.Stat(path); err != nil {
+	if _, err = os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
-			file, err := os.Create(path)
+			var file *os.File
+			file, err = os.Create(path)
 			if err != nil {
-				logrus.Panic(err)
+				return
 			}
 			_ = file.Close()
 		} else {
-			logrus.Panic(err)
+			return
 		}
 	}
+	return
 }
 
 func (c *Center) download() (err error) {
@@ -250,7 +244,7 @@ func downloadConfig(conn *zk.Conn, remotePathName, localPathName string) (err er
 		return
 	}
 	if !exist {
-		logrus.Warn("[config center]config path not exist, will create:\n", remotePathName)
+		log.Warn("[config center]config path not exist, will create:\n", remotePathName)
 		return
 	}
 	data, _, err = conn.Get(remotePathName)
@@ -271,9 +265,15 @@ func (c *Center) syncPublic() (err error) {
 }
 
 func syncViperFile(viper2 *viper.Viper) (err error) {
+	defer func() {
+		if err != nil {
+			err = fmt.Errorf("sync file fail:\n%w", err)
+		}
+	}()
+
 	err = viper2.ReadInConfig() // Find and read the config file
 	if err != nil {             // Handle errors reading the config file
-		logrus.Warn(fmt.Sprintf("[config center]config file is empty:\n%s", err))
+		log.Warn(fmt.Sprintf("[config center]config file is empty:\n%s", err))
 	}
 
 	err = viper2.WriteConfig()
@@ -363,7 +363,7 @@ func (c *Center) GetKafkaAddresses() (addrArr []string, err error) {
 	for _, child := range Children {
 		data, _, err = c.zkConn.Get(path.Join(brokersPath, child))
 		if err != nil {
-			logrus.Warn(fmt.Sprintf("[config center]kafka broker (%s) lost", child))
+			log.Warn(fmt.Sprintf("[config center]kafka broker (%s) lost", child))
 			continue
 		}
 		var addr KafkaAddress

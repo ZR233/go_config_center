@@ -5,7 +5,7 @@ import (
 )
 
 func TestConfig_Save(t *testing.T) {
-	ce := NewCenter([]string{"bsw-ubuntu:2181"}, "/test1/test2/test3", "detect_config")
+	ce := NewCenter("/test1/test2/test3", "detect_config")
 	err := ce.Open()
 	if err != nil {
 		t.Error(err)
@@ -20,7 +20,7 @@ func TestConfig_Save(t *testing.T) {
 
 func TestCenter_GetKafkaAddresses(t *testing.T) {
 
-	ce := NewCenter([]string{"bsw-ubuntu:2181"}, "/test1/test2/test3", "detect_config")
+	ce := NewCenter("/test1/test2/test3", "detect_config")
 	err := ce.Open()
 	if err != nil {
 		t.Error(err)
@@ -36,7 +36,7 @@ func TestCenter_GetKafkaAddresses(t *testing.T) {
 }
 
 func TestCenter_GetPublicPostgres(t *testing.T) {
-	ce := NewCenter([]string{"bsw-ubuntu:2181"}, "/test1/test2/test3", "detect_config")
+	ce := NewCenter("/test1/test2/test3", "detect_config")
 	err := ce.Open()
 	if err != nil {
 		t.Error(err)
