@@ -110,7 +110,6 @@ func (c *Center) Open() (err error) {
 	c.zkConn = conn
 
 	err = c.Update()
-
 	return
 }
 
@@ -133,6 +132,8 @@ func (c *Center) Update() (err error) {
 }
 
 type RedisConfig struct {
+	Type       string
+	MasterName string
 	// A seed list of host:port addresses of cluster nodes.
 	Addrs []string
 
@@ -179,6 +180,8 @@ type PostgreSQLConfig struct {
 
 func (c *Center) SetPublicDefault() {
 	redis := RedisConfig{}
+	redis.Type = "single"
+	redis.MasterName = "mymaster"
 	redis.Addrs = []string{"192.168.0.3:6379"}
 	redis.Password = "asdf*123"
 	c.publicViper.SetDefault("redis", redis)
@@ -333,6 +336,7 @@ func upload(conn *zk.Conn, remotePath, localPathName, configName string) (err er
 		if !exist {
 			// permission
 			var acls = zk.WorldACL(zk.PermAll)
+
 			// create
 			var flags int32 = 0
 
