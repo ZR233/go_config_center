@@ -111,13 +111,11 @@ func NewCenter(Name string) (center *Center) {
 
 	return
 }
-func (c *Center) Open(options ...Option) (errs []error) {
-	var err error
+func (c *Center) Open(options ...Option) (msg []string, err error) {
 
 	for _, option := range options {
 		err = option.set(c)
 		if err != nil {
-			errs = append(errs, err)
 			return
 		}
 	}
@@ -135,14 +133,13 @@ func (c *Center) Open(options ...Option) (errs []error) {
 		//加载线上配置失败，读取上次配置
 		if err != nil {
 			err = fmt.Errorf("online mode open fail, read last config\n%w", err)
-			errs = append(errs, err)
+			msg = append(msg, err.Error())
 		}
 	}
 
 	err = c.ReadInConfig()
 	if err != nil {
 		err = fmt.Errorf("private config read fail\n%w", err)
-		errs = append(errs, err)
 		return
 	}
 

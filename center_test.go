@@ -22,13 +22,13 @@ func TestConfig_Save(t *testing.T) {
 func TestCenter_GetConfig(t *testing.T) {
 
 	ce := NewCenter("public")
-	errs := ce.Open(NewOptionOnlineMode("/", "./config.yaml"))
-	if len(errs) > 0 {
-		t.Error(errs[0])
+	_, err := ce.Open(NewOptionOnlineMode("/", "./config.yaml"))
+	if err != nil {
+		t.Error(err)
 		return
 	}
 	cfg := &PublicConfig{}
-	err := ce.Unmarshal(cfg)
+	err = ce.Unmarshal(cfg)
 	if err != nil {
 		t.Error(err)
 		return
@@ -39,9 +39,9 @@ func TestCenter_GetConfig(t *testing.T) {
 func TestCenter_GetKafkaAddresses(t *testing.T) {
 
 	ce := NewCenter("detect_config")
-	errs := ce.Open(NewOptionOnlineMode("/test1/test2/test3", "./config.yaml"))
-	if len(errs) > 0 {
-		t.Error(errs[0])
+	_, err := ce.Open(NewOptionOnlineMode("/test1/test2/test3", "./config.yaml"))
+	if err != nil {
+		t.Error(err)
 		return
 	}
 	addr, err := ce.GetKafkaAddresses()
