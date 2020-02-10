@@ -21,25 +21,11 @@ const (
 )
 
 type Center struct {
-	//zkHosts            []string
-	//zkConn             *zk.Conn
-	//RemotePath         string
 	localPath string
 	online    *OptionOnlineMode
 	name      string
 	*viper.Viper
-	//publicViper        *viper.Viper
-	//enablePublicConfig bool
-	//updateSuccess      bool
-	//fileConfig         *FileConfig
 }
-
-//func (c *Center) SetOnlineMode(b bool) {
-//	c.onlineMode = b
-//}
-//func (c *Center) EnablePublicConfig(b bool) {
-//	c.enablePublicConfig = b
-//}
 
 func (c *Center) publicLocalPathName() string {
 	return path.Join(c.localPath, filePrefix+publicConfigName)
@@ -76,12 +62,6 @@ func (o *OptionOnlineMode) set(center *Center) (err error) {
 	return
 }
 
-////开启公共配置
-//type OptionEnablePublicConfig bool
-//func (o OptionEnablePublicConfig)set(center *Center)(err error){
-//	center.enablePublicConfig = bool(o)
-//	return
-//}
 //配置文件存储位置
 type OptionLocalConfigPath string
 
@@ -119,14 +99,6 @@ func (c *Center) Open(options ...Option) (msg []string, err error) {
 			return
 		}
 	}
-	//if c.enablePublicConfig{
-	//	if c.online == nil{
-	//		err = errors.New("线上模式未开启，不能使用公共配置")
-	//		errs = append(errs, err)
-	//		return
-	//	}
-	//	c.publicViper = viper.New()
-	//}
 
 	if c.online != nil {
 		err = c.online.open()
@@ -136,30 +108,13 @@ func (c *Center) Open(options ...Option) (msg []string, err error) {
 			msg = append(msg, err.Error())
 		}
 	}
-
+	c.SetConfigFile(c.localPathName())
 	err = c.ReadInConfig()
 	if err != nil {
 		err = fmt.Errorf("private config read fail\n%w", err)
 		return
 	}
 
-	//if c.enablePublicConfig{
-	//	err = c.publicViper.ReadInConfig()
-	//	if err !=nil{
-	//		err = fmt.Errorf("public config read fail\n%w", err)
-	//		errs = append(errs, err)
-	//		return
-	//	}
-	//}
-
-	//c.fileConfig, err = newFileConfig(c)
-
-	//conn, _, err := zk.Connect(c.zkHosts, time.Second*5)
-	//if err != nil {
-	//	return
-	//}
-	//c.zkConn = conn
-	//err = c.Update()
 	return
 }
 
