@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ZR233/go_config_center/log"
 	"github.com/samuel/go-zookeeper/zk"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
@@ -164,10 +165,10 @@ func (o *OptionOnlineMode) zkConnect() (err error) {
 	return
 }
 func (o *OptionOnlineMode) download(viperCase *viper.Viper, remotePathName, localPathName string) (err error) {
-	err = ifFileNotExistThenCreate(localPathName)
-	if err != nil {
-		return
-	}
+	//err = ifFileNotExistThenCreate(localPathName)
+	//if err != nil {
+	//	return
+	//}
 
 	err = downloadConfig(o.zkConn, remotePathName, localPathName)
 	if err != nil {
@@ -299,28 +300,28 @@ type PostgreSQLConfig struct {
 //
 //}
 
-func ifFileNotExistThenCreate(path string) (err error) {
-	defer func() {
-		if err != nil {
-			err = fmt.Errorf("create file fail (%s):\n%w", path, err)
-		}
-	}()
-
-	// 若配置文件不存在，则创建
-	if _, err = os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			var file *os.File
-			file, err = os.Create(path)
-			if err != nil {
-				return
-			}
-			_ = file.Close()
-		} else {
-			return
-		}
-	}
-	return
-}
+//func ifFileNotExistThenCreate(path string) (err error) {
+//	defer func() {
+//		if err != nil {
+//			err = fmt.Errorf("create file fail (%s):\n%w", path, err)
+//		}
+//	}()
+//
+//	// 若配置文件不存在，则创建
+//	if _, err = os.Stat(path); err != nil {
+//		if os.IsNotExist(err) {
+//			var file *os.File
+//			file, err = os.Create(path)
+//			if err != nil {
+//				return
+//			}
+//			_ = file.Close()
+//		} else {
+//			return
+//		}
+//	}
+//	return
+//}
 
 //func (c *Center) download() (err error) {
 //	remotePath := path.Join(c.RemotePath, c.name)
@@ -349,6 +350,7 @@ func downloadConfig(conn *zk.Conn, remotePathName, localPathName string) (err er
 	if err != nil {
 		return
 	}
+	logrus.Info("download: " + localPathName)
 	err = ioutil.WriteFile(localPathName, data, os.ModePerm)
 	return
 }
