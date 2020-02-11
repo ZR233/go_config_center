@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/ZR233/go_config_center/log"
 	"github.com/samuel/go-zookeeper/zk"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"io/ioutil"
 	"os"
@@ -345,7 +344,6 @@ func downloadConfig(conn *zk.Conn, remotePathName, localPathName string) (err er
 	if err != nil {
 		return
 	}
-	logrus.Info("download: " + localPathName)
 	err = ioutil.WriteFile(localPathName, data, os.ModePerm)
 	return
 }
