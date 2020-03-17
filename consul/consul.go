@@ -1,12 +1,17 @@
 package consul
 
-import "github.com/hashicorp/consul/api"
+import (
+	"github.com/hashicorp/consul/api"
+	"strings"
+)
 
 type Client struct {
 	consul *api.Client
 }
 
 func (c *Client) Get(path string) []byte {
+	path = strings.TrimLeft(path, "/")
+
 	pair, _, err := c.consul.KV().Get(path, nil)
 	if err != nil {
 		panic(err)
@@ -18,7 +23,7 @@ func (c Client) Close() error {
 	return nil
 }
 func (c *Client) Set(path string, value []byte) (err error) {
-
+	path = strings.TrimLeft(path, "/")
 	_, err = c.consul.KV().Put(&api.KVPair{Key: path, Flags: 0, Value: value}, nil)
 	return
 }

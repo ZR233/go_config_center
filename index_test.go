@@ -12,3 +12,17 @@ func TestOpen(t *testing.T) {
 	println(common)
 
 }
+
+func TestConfig_Set(t *testing.T) {
+	config, err := Open("test/test1/test2", nil)
+	println(err)
+	var test struct {
+		Hello  string
+		Hello2 string
+	}
+	test.Hello = "123"
+	test.Hello2 = "321"
+
+	err = config.Set(test)
+	println(err)
+}
