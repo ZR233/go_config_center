@@ -14,9 +14,9 @@ func init() {
 	logger_ = logrus.StandardLogger()
 }
 
-func SetLogger(logger Logger) {
-	logger_ = logger
-}
+//func SetLogger(logger Logger) {
+//	logger_ = logger
+//}
 
 func Warn(args ...interface{}) {
 	logger_.Warn(args...)

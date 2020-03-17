@@ -7,23 +7,39 @@ import (
 )
 
 func TestConfig_Save(t *testing.T) {
-	ce := NewCenter("/test1/test2/test3", "detect_config")
-	err := ce.Open()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	err = ce.Sync()
-	if err != nil {
-		t.Error(err)
-		return
-	}
+	//ce := NewCenter("/test1/test2/test3", "detect_config")
+	//err := ce.Open()
+	//if err != nil {
+	//	t.Error(err)
+	//	return
+	//}
+	//err = ce.Sync()
+	//if err != nil {
+	//	t.Error(err)
+	//	return
+	//}
 }
+func TestCenter_GetConfig(t *testing.T) {
 
+	ce := NewCenter("public")
+	_, err := ce.Open(NewOptionOnlineMode("/", "./config.yaml"))
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	cfg := &PublicConfig{}
+	err = ce.Unmarshal(cfg)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Log(cfg)
+}
 func TestCenter_GetKafkaAddresses(t *testing.T) {
 
-	ce := NewCenter("/test1/test2/test3", "detect_config")
-	err := ce.Open()
+	ce := NewCenter("detect_config")
+	_, err := ce.Open(NewOptionOnlineMode("/test1/test2/test3", "./config.yaml"))
 	if err != nil {
 		t.Error(err)
 		return
@@ -38,15 +54,15 @@ func TestCenter_GetKafkaAddresses(t *testing.T) {
 }
 
 func TestCenter_GetPublicPostgres(t *testing.T) {
-	ce := NewCenter("/test1/test2/test3", "detect_config")
-	err := ce.Open()
-	if err != nil {
-		t.Error(err)
-		return
-	}
-	p := ce.GetPublicPostgres()
-
-	t.Log(p)
+	//ce := NewCenter("/test1/test2/test3", "detect_config")
+	//err := ce.Open()
+	//if err != nil {
+	//	t.Error(err)
+	//	return
+	//}
+	//p := ce.GetPublicPostgres()
+	//
+	//t.Log(p)
 }
 func TestZK_Auth(t *testing.T) {
 
